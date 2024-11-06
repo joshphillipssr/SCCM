@@ -1,8 +1,8 @@
 # Define the group DN for the target group
 $groupDN = "CN=ITS Workstations,OU=SCCM Groups,OU=Groups,DC=goodyearaz,DC=pri"
 
-# Get all computers with "ITS" in the Description field
-$computers = Get-ADComputer -Filter {Description -like "*ITS*"} -Properties Description
+# Get the list of names of computers matching the criteria
+$matchingComputerNames = $computers.Name
 
 # Get current members of the AD group
 $currentMembers = Get-ADGroupMember -Identity $groupDN -Recursive | Where-Object { $_.objectClass -eq "computer" }
@@ -15,10 +15,15 @@ foreach ($computer in $computers) {
     }
 }
 
-# Remove computers that no longer meet the criteria
+# Remove computers that do not meet the criteria
 foreach ($member in $currentMembers) {
-    if ($computers.Name -notcontains $member.Name) {
+    # Retrieve the computer object and Description for each member
+    $computerObj = Get-ADComputer -Identity $member.Name -Properties Description
+    $description = $computerObj.Description
+
+    # Check if Description does NOT contain "IT -" or "ITS -"
+    if ($description -notlike "*ITS -*" -and $description -notlike "*IT -*") {
         Remove-ADGroupMember -Identity $groupDN -Members $member -Confirm:$false -ErrorAction SilentlyContinue
-        Write-Output "Removed $($member.Name) from $groupDN"
+        Write-Output "Removed $($member.Name) from $groupDN due to mismatched description"
     }
 }
